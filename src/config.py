@@ -11,10 +11,7 @@ import os
 from openai import OpenAI
 
 # ─── Telegram ────────────────────────────────────────────────────────────────
-TELEGRAM_TOKEN = os.environ.get(
-    "TELEGRAM_TOKEN",
-    "8773473725:AAGsGEuHSucF5bEpHanaswv3-Ca-ECkDU9o",
-)
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 
 # ─── Qwen / LLM ──────────────────────────────────────────────────────────────
 QWEN_API_URL = os.environ.get(
@@ -22,10 +19,7 @@ QWEN_API_URL = os.environ.get(
     "https://qwen.aikit.club",
 )
 
-QWEN_TOKEN = os.environ.get(
-    "QWEN_TOKEN",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImU3MTQ5NTYwLWEwMzYtNDJmYi05ZGFjLTc2M2YyNDdiYTVlMSIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzc3MjQ5MTU0LCJleHAiOjE3Nzk4NDExNTZ9.2XnX0Tfnk1RZyTUmUt3LOaiXa_VcfnNyPYP0ZxQnSmI",
-)
+QWEN_TOKEN = os.environ.get("QWEN_TOKEN", "")
 
 # Совместимость со старым именем переменной.
 QWEN_API_KEY = os.environ.get("QWEN_API_KEY", QWEN_TOKEN)
@@ -33,14 +27,8 @@ QWEN_API_KEY = os.environ.get("QWEN_API_KEY", QWEN_TOKEN)
 # Mini App backend (FastAPI на Fly.io). По кнопке «Подробно» бот публикует
 # решение через POST /api/solutions и открывает уникальную ссылку как
 # Telegram Mini App — это полноэкранная мобильная страница внутри Telegram.
-MINI_APP_BASE_URL = os.environ.get(
-    "MINI_APP_BASE_URL",
-    "https://shpargalka-app-mjhceaka.fly.dev",
-).rstrip("/")
-MINI_APP_API_KEY = os.environ.get(
-    "MINI_APP_API_KEY",
-    "0SZRlwgIaxTb9YOBl7dyl_u6CJrD93HfsWN_8q0-Gkk",
-)
+MINI_APP_BASE_URL = os.environ.get("MINI_APP_BASE_URL", "").rstrip("/")
+MINI_APP_API_KEY = os.environ.get("MINI_APP_API_KEY", "")
 
 # ─── Модели (можно переопределить через .env) ────────────────────────────────
 # Список доступных моделей: GET https://qwen.aikit.club/models с твоим JWT.
