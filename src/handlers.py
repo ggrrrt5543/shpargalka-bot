@@ -155,24 +155,25 @@ async def set_format_callback(
 
     if data == "set_format_detailed":
         await db_users.set_format_choice(user_id, "detailed")
-        text = "✅ Формат: <b>📖 Подробный</b>"
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
     elif data == "set_format_short":
         await db_users.set_format_choice(user_id, "short")
-        text = "✅ Формат: <b>⚡ Краткий</b>"
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
     elif data == "show_subjects":
         await _show_subject_menu_edit(query)
         return
     else:
         await db_users.set_format_choice(user_id, None)
-        text = "🔄 Сброшено — буду спрашивать каждый раз."
-
-    back_kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton("◀️ Назад", callback_data="back_settings"),
-    ]])
-    try:
-        await query.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=back_kb)
-    except Exception:
-        pass
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
 
 
 # ─── Предмет ─────────────────────────────────────────────────────────────────
@@ -222,16 +223,8 @@ async def set_subject_callback(
 
     data = (query.data or "").replace("set_subject_", "")
     await db_users.set_subject(user_id, data)
-    label = SUBJECT_LABELS.get(data, data)
-    back_kb = InlineKeyboardMarkup([[
-        InlineKeyboardButton("◀️ Назад", callback_data="back_settings"),
-    ]])
     try:
-        await query.edit_message_text(
-            f"✅ Предмет: <b>{html.escape(label)}</b>",
-            parse_mode=ParseMode.HTML,
-            reply_markup=back_kb,
-        )
+        await query.message.delete()
     except Exception:
         pass
 
