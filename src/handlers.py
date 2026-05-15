@@ -344,7 +344,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # RAG поиск
     rag_chunks = retriever.search(question, subject=detected_subject)
 
-    # 7. Решаем с прогресс-баром
+    # 7. Решаем с прогресс-баром (в фоновой задаче чтобы не блокировать бота)
     progress_steps = [
         "⏳ Анализирую задачу...\n▓░░░░░░░░░",
         "🔍 Ищу в базе знаний...\n▓▓▓░░░░░░░",

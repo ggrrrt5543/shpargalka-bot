@@ -78,7 +78,7 @@ def main() -> None:
     # Async startup (DB)
     asyncio.get_event_loop().run_until_complete(_startup_tasks())
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = Application.builder().token(TELEGRAM_TOKEN).concurrent_updates(True).build()
 
     # Команды
     app.add_handler(CommandHandler("start", start))
