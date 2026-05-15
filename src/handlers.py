@@ -427,11 +427,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         timer_task = asyncio.create_task(_progress_timer())
 
         try:
-            answer = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None, ask_qwen_text, question, history, rag_chunks, subject_prompt, detected_subject
-                ),
-                timeout=90.0,
+            answer = await loop.run_in_executor(
+                None, ask_qwen_text, question, history, rag_chunks, subject_prompt, detected_subject
             )
         finally:
             timer_task.cancel()
@@ -483,8 +480,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = bytes(await photo_file.download_as_bytearray())
         await _solve_image(update, user_id, photo_bytes, caption, thinking_msg, t0, "photo")
-    except asyncio.TimeoutError:
-        await thinking_msg.edit_text("❌ Таймаут — задача слишком сложная. Попробуй разбить на части.")
     except Exception as e:
         logger.error(f"Ошибка (фото): {e}")
         try:
@@ -513,8 +508,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         file = await doc.get_file()
         img_bytes = bytes(await file.download_as_bytearray())
         await _solve_image(update, user_id, img_bytes, caption, thinking_msg, t0, "document")
-    except asyncio.TimeoutError:
-        await thinking_msg.edit_text("❌ Таймаут — задача слишком сложная.")
     except Exception as e:
         logger.error(f"Ошибка (документ): {e}")
         try:
@@ -551,11 +544,8 @@ async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, 
     timer_task = asyncio.create_task(_progress_timer())
 
     try:
-        answer = await asyncio.wait_for(
-            loop.run_in_executor(
-                None, ask_qwen_image, image_bytes, caption, subject_prompt, rag_chunks
-            ),
-            timeout=120.0,
+        answer = await loop.run_in_executor(
+            None, ask_qwen_image, image_bytes, caption, subject_prompt, rag_chunks
         )
     finally:
         timer_task.cancel()

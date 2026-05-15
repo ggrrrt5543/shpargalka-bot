@@ -124,7 +124,6 @@ def _verify_answer(question: str, draft: str, verifier_prompt: str | None = None
             ],
             max_tokens=512,
             temperature=0.0,
-            timeout=30.0,
             extra_body={"reasoning_effort": "medium"},
         )
         verdict = _sanitize_model_output(r.choices[0].message.content)
@@ -237,7 +236,6 @@ def ask_qwen_text(
         messages=messages,
         max_tokens=3500,
         temperature=0.1,
-        timeout=60.0,
     )
     draft = _sanitize_model_output(r.choices[0].message.content)
     if not draft:
