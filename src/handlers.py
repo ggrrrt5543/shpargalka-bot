@@ -156,13 +156,13 @@ async def set_format_callback(
     if data == "set_format_detailed":
         await db_users.set_format_choice(user_id, "detailed")
         try:
-            await query.message.delete()
+            await query.edit_message_text("✅ Режим: 📖 Подробный")
         except Exception:
             pass
     elif data == "set_format_short":
         await db_users.set_format_choice(user_id, "short")
         try:
-            await query.message.delete()
+            await query.edit_message_text("✅ Режим: ⚡ Краткий")
         except Exception:
             pass
     elif data == "show_subjects":
@@ -171,7 +171,7 @@ async def set_format_callback(
     else:
         await db_users.set_format_choice(user_id, None)
         try:
-            await query.message.delete()
+            await query.edit_message_text("✅ Режим: спрашиваю каждый раз")
         except Exception:
             pass
 
@@ -223,8 +223,9 @@ async def set_subject_callback(
 
     data = (query.data or "").replace("set_subject_", "")
     await db_users.set_subject(user_id, data)
+    label = SUBJECT_LABELS.get(data, data)
     try:
-        await query.message.delete()
+        await query.edit_message_text(f"✅ Предмет: {label}")
     except Exception:
         pass
 
