@@ -77,11 +77,13 @@ BTN_SETTINGS = "⚙ Настройки"
 BTN_SUBJECT = "📚 Предмет"
 BTN_STATS = "📊 Статистика"
 BTN_CLEAR = "🗑 Очистить"
+BTN_FORMAT = "📖 Режим ответа"
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
-        [KeyboardButton(BTN_SETTINGS), KeyboardButton(BTN_SUBJECT)],
-        [KeyboardButton(BTN_STATS), KeyboardButton(BTN_CLEAR)],
+        [KeyboardButton(BTN_FORMAT), KeyboardButton(BTN_SUBJECT)],
+        [KeyboardButton(BTN_SETTINGS), KeyboardButton(BTN_STATS)],
+        [KeyboardButton(BTN_CLEAR)],
     ],
     resize_keyboard=True,
     is_persistent=True,
@@ -266,6 +268,29 @@ async def back_settings_callback(
         pass
 
 
+# ─── Режим ответа ────────────────────────────────────────────────────────────
+async def _show_format_menu(message, user_id: int) -> None:
+    format_choice = await db_users.get_format_choice(user_id)
+    current = {
+        "detailed": "📖 Подробный",
+        "short": "⚡ Краткий",
+    }.get(format_choice, "❓ спрашиваю каждый раз")
+
+    await message.reply_text(
+        f"📖 <b>Режим ответа</b>\n\nСейчас: <i>{html.escape(current)}</i>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("📖 Подробный", callback_data="set_format_detailed"),
+                InlineKeyboardButton("⚡ Краткий", callback_data="set_format_short"),
+            ],
+            [
+                InlineKeyboardButton("🔄 Спрашивать каждый раз", callback_data="set_format_reset"),
+            ],
+        ]),
+    )
+
+
 # ─── Статистика ──────────────────────────────────────────────────────────────
 async def _show_mystats(message, user_id: int) -> None:
     stats = await db_analytics.get_user_stats(user_id)
@@ -342,6 +367,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if question == BTN_CLEAR:
         await memory.clear(user_id)
         await update.message.reply_text("🗑 История очищена.")
+        return
+    if question == BTN_FORMAT:
+        await _show_format_menu(update.message, user_id)
         return
 
     # 2. Админ: секретная фраза
