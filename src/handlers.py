@@ -558,30 +558,41 @@ async def handle_document(
 
 # ─── Подробный рендер ────────────────────────────────────────────────────────
 async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
-    """Публикует подробное решение: Mini App → Telegraph → PNG → текст."""
+    """Публикует подробное решение: Mini App → Telegraph → текст (fallback)."""
     answer = sanitize_model_output(answer)
     answer = clean_latex_outside_formulas(answer)
     thinking = await target_msg.reply_text("🌐 Готовлю решение...")
     loop = asyncio.get_running_loop()
 
-    # Графики — только PNG в чат, без SVG в Mini App (SVG рендерится криво)
-    plot_specs = extract_plot_tasks(answer)
-    for spec in plot_specs[:6]:
-        png = await loop.run_in_executor(
-            None, plot_function_png, spec["expr"], spec["label"], spec["x_range"], 50.0
-        )
-        if png:
+    # Графики — только PNG в чат
+    try:
+        plot_specs = extract_plot_tasks(answer)
+        for spec in plot_specs[:3]:  # максимум 3 графика
             try:
-                await target_msg.reply_photo(photo=io.BytesIO(png), caption=f"📈 {spec['label']}")
-            except Exception as e:
-                logger.error(f"Не удалось отправить график {spec['label']}: {e}")
+                png = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, plot_function_png, spec["expr"], spec["label"], spec["x_range"], 50.0
+                    ),
+                    timeout=10.0,
+                )
+                if png:
+                    await target_msg.reply_photo(photo=io.BytesIO(png), caption=f"📈 {spec['label']}")
+            except (asyncio.TimeoutError, Exception) as e:
+                logger.warning(f"График пропущен: {e}")
+    except Exception:
+        pass
 
     title = make_solution_title(answer)
 
-    # Mini App
-    mini_app_url = await loop.run_in_executor(
-        None, publish_to_mini_app, title, answer, user_id
-    )
+    # Mini App (с таймаутом)
+    mini_app_url = None
+    try:
+        mini_app_url = await asyncio.wait_for(
+            loop.run_in_executor(None, publish_to_mini_app, title, answer, user_id),
+            timeout=15.0,
+        )
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.warning(f"Mini App недоступен: {e}")
 
     try:
         await thinking.delete()
@@ -594,46 +605,36 @@ async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
             [InlineKeyboardButton("🌐 Открыть в браузере", url=mini_app_url)],
         ])
         try:
-            await target_msg.reply_text(
-                "✅ Решение готово!",
-                reply_markup=kb,
-            )
+            await target_msg.reply_text("✅ Решение готово!", reply_markup=kb)
         except Exception:
             pass
-        await target_msg.reply_text("📚 Отправь новое задание!")
         return
 
-    # Telegraph fallback
-    if not TELEGRAPH_TOKEN:
-        await loop.run_in_executor(None, init_telegraph)
-    telegraph_url = await loop.run_in_executor(None, publish_to_telegraph, title, answer)
+    # Telegraph fallback (с таймаутом)
+    telegraph_url = None
+    try:
+        if not TELEGRAPH_TOKEN:
+            await loop.run_in_executor(None, init_telegraph)
+        telegraph_url = await asyncio.wait_for(
+            loop.run_in_executor(None, publish_to_telegraph, title, answer),
+            timeout=10.0,
+        )
+    except (asyncio.TimeoutError, Exception) as e:
+        logger.warning(f"Telegraph недоступен: {e}")
+
     if telegraph_url:
         kb = InlineKeyboardMarkup([[
             InlineKeyboardButton("📖 Открыть решение", url=telegraph_url),
         ]])
-        await target_msg.reply_text(
-            "✅ Решение готово!",
-            reply_markup=kb,
-        )
-        await target_msg.reply_text("📚 Отправь новое задание!")
+        await target_msg.reply_text("✅ Решение готово!", reply_markup=kb)
         return
 
-    # PNG fallback
-    image_bytes = await loop.run_in_executor(None, solution_to_image, answer)
-    if image_bytes:
+    # Текстовый fallback — всегда работает
+    for chunk in [answer[i:i+4000] for i in range(0, len(answer), 4000)]:
         try:
-            if len(image_bytes) > 9 * 1024 * 1024:
-                await target_msg.reply_document(
-                    document=io.BytesIO(image_bytes), filename="solution.png"
-                )
-            else:
-                await target_msg.reply_photo(photo=io.BytesIO(image_bytes), caption="📖 Решение")
-        except Exception:
-            for chunk in [answer[i:i+4000] for i in range(0, len(answer), 4000)]:
-                await target_msg.reply_text(chunk)
-    else:
-        for chunk in [answer[i:i+4000] for i in range(0, len(answer), 4000)]:
             await target_msg.reply_text(chunk)
+        except Exception:
+            pass
 
     await target_msg.reply_text("📚 Отправь новое задание!")
 
