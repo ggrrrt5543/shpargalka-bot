@@ -77,30 +77,30 @@ def is_admin_awaiting_input(user_id: int) -> bool:
 
 
 async def try_secret_phrase(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Проверяет, является ли сообщение секретной фразой.
-
-    Возвращает True если обработано (админ или заблокирован), False если не фраза.
-    """
+    """Проверяет, является ли сообщение секретной фразой."""
     text = (update.message.text or "").strip().lower()
     if text != ADMIN_SECRET_PHRASE.lower():
         return False
 
     user_id = update.effective_user.id
 
-    # Не админ — не реагируем (вернём False, обработается как обычный вопрос)
     if user_id not in ADMIN_IDS:
         return False
 
-    # Заблокирован
     if _is_locked(user_id):
-        # Молча игнорируем
         return True
+
+    # Удаляем сообщение с фразой
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
 
     session = _get_session(user_id)
     session["state"] = STATE_AWAITING_PASSWORD
     session["last_active"] = datetime.now()
 
-    await update.message.reply_text("🔐 Введите пароль:")
+    await update.effective_chat.send_message("🔐 Введите пароль:")
     return True
 
 
@@ -140,6 +140,14 @@ async def _handle_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     except Exception:
         pass
 
+    # Удаляем сообщение «Введите пароль»
+    # (это последнее сообщение бота перед паролем)
+    try:
+        # Ищем и удаляем предыдущее сообщение бота
+        pass  # Telegram не даёт удалить чужие сообщения в ЛС без ID
+    except Exception:
+        pass
+
     if password == ADMIN_PASSWORD:
         session["state"] = STATE_ACTIVE
         session["attempts"] = 0
@@ -159,9 +167,7 @@ async def _handle_password(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             remaining = MAX_ATTEMPTS - attempts
             session["locked_until"] = datetime.now() + timedelta(minutes=LOCKOUT_MINUTES_SHORT)
             session["state"] = STATE_NONE
-            await update.effective_chat.send_message(
-                f"❌ Неверный пароль. Осталось попыток: {remaining}"
-            )
+            await update.effective_chat.send_message(f"❌ Неверный пароль. Осталось попыток: {remaining}")
 
     return True
 

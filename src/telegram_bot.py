@@ -19,11 +19,9 @@ from .admin.handlers import handle_admin_callback
 from .config import ADMIN_IDS, KNOWLEDGE_BASE_PATH, TELEGRAM_TOKEN, logger
 from .db import init_db
 from .handlers import (
-    handle_clear,
+    back_settings_callback,
     handle_document,
-    handle_mystats,
     handle_photo,
-    handle_subject_command,
     handle_text,
     set_format_callback,
     set_subject_callback,
@@ -82,38 +80,24 @@ def main() -> None:
 
     # Команды
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("clear", handle_clear))
-    app.add_handler(CommandHandler("subject", handle_subject_command))
-    app.add_handler(CommandHandler("mystats", handle_mystats))
 
     # Сообщения
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    # Callbacks — формат
-    app.add_handler(
-        CallbackQueryHandler(show_detailed_callback, pattern="^show_detailed$")
-    )
-    app.add_handler(
-        CallbackQueryHandler(show_short_callback, pattern="^show_short$")
-    )
-    app.add_handler(
-        CallbackQueryHandler(set_format_callback, pattern="^set_format_")
-    )
-    app.add_handler(
-        CallbackQueryHandler(set_format_callback, pattern="^show_subjects$")
-    )
+    # Callbacks — формат и настройки
+    app.add_handler(CallbackQueryHandler(show_detailed_callback, pattern="^show_detailed$"))
+    app.add_handler(CallbackQueryHandler(show_short_callback, pattern="^show_short$"))
+    app.add_handler(CallbackQueryHandler(set_format_callback, pattern="^set_format_"))
+    app.add_handler(CallbackQueryHandler(set_format_callback, pattern="^show_subjects$"))
+    app.add_handler(CallbackQueryHandler(back_settings_callback, pattern="^back_settings$"))
 
     # Callbacks — предмет
-    app.add_handler(
-        CallbackQueryHandler(set_subject_callback, pattern="^set_subject_")
-    )
+    app.add_handler(CallbackQueryHandler(set_subject_callback, pattern="^set_subject_"))
 
     # Callbacks — админ
-    app.add_handler(
-        CallbackQueryHandler(handle_admin_callback, pattern="^admin_")
-    )
+    app.add_handler(CallbackQueryHandler(handle_admin_callback, pattern="^admin_"))
 
     # RAG индексация отключена при старте (запускай через админ-панель → Реиндекс)
     # Это экономит ресурсы при запуске бота
