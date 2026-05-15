@@ -1,17 +1,14 @@
 """
 LLM-решатель: основной solver + reasoning-верификатор.
 
-Аналог `channel-translator.ts`: модуль, отвечающий за «прикладную»
-работу с моделью — отправляет запрос и возвращает текстовый результат.
-
-  • `ask_qwen_text`  — обычная задача (текст).
+  • `ask_qwen_text`  — обычная задача (текст) с поддержкой истории, RAG, предметов.
   • `ask_qwen_image` — задача с фото (vision-модель).
   • `_verify_answer` — reasoning-проверка чернового ответа.
 """
 import base64
+import re
 import urllib.error
 import urllib.request
-import re
 
 from .config import (
     QWEN_API_KEY,
@@ -24,14 +21,13 @@ from .config import (
 )
 from .latex.prompts import (
     LITERATURE_VERIFIER_PROMPT,
+    SUBJECT_VERIFIER_PROMPTS,
     SYSTEM_PROMPT,
     VERIFIER_PROMPT,
 )
 
 
-# Провайдер qwen.aikit.club добавляет в конец ответа технический блок
-# <details><summary></summary>`Response ID: …`Request ID: …`</details>
-# Чистим его, чтобы не лез в Mini App / краткий ответ / Telegraph.
+# ─── Очистка технического мусора провайдера ──────────────────────────────────
 _DETAILS_RE = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
 _DETAILS_OPEN_RE = re.compile(r"<details\b.*", re.IGNORECASE | re.DOTALL)
 _DETAILS_TAG_RE = re.compile(
@@ -50,29 +46,22 @@ def _sanitize_model_output(text: str | None) -> str:
     """Убирает технический мусор провайдера из текста модели."""
     if not text:
         return ""
-    # 1) Полные блоки <details>...</details>.
     text = _DETAILS_RE.sub("", text)
-    # 2) Если </details> отсутствует (оборванный ответ) — режем всё от <details>.
     text = _DETAILS_OPEN_RE.sub("", text)
-    # 3) Голые теги <details>/<summary>, если остались.
     text = _DETAILS_TAG_RE.sub("", text)
-    # 4) Строки Response/Request ID — целиком.
     text = _REQUEST_ID_RE.sub("", text)
-    # 5) То же самое, но если они попали внутрь строки.
     text = _REQUEST_ID_INLINE_RE.sub("", text)
-    # 6) Висячие одиночные backtick-строки.
     text = _BACKTICK_LINE_RE.sub("", text)
-    # 7) Сжимаем 3+ переносов в 2.
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
-# Публичный алиас — чтобы handlers.py мог импортировать.
 sanitize_model_output = _sanitize_model_output
 
 
+# ─── Удаление чатов Qwen ────────────────────────────────────────────────────
 def delete_qwen_chats() -> bool:
-    """Удаляет историю чатов Qwen через endpoint прокси qwen.aikit.club."""
+    """Удаляет историю чатов Qwen через endpoint прокси."""
     if getattr(delete_qwen_chats, "_unsupported", False):
         return False
 
@@ -114,16 +103,18 @@ def delete_qwen_chats() -> bool:
     return False
 
 
-def _verify_answer(question: str, draft: str) -> str | None:
-    """Проверяет черновое решение умной reasoning-моделью.
+# ─── Верификатор ─────────────────────────────────────────────────────────────
+def _verify_answer(question: str, draft: str, verifier_prompt: str | None = None) -> str | None:
+    """Проверяет черновое решение reasoning-моделью.
 
-    Возвращает None если всё OK, либо строку с правильным ответом.
+    Возвращает None если OK, либо строку с правильным ответом.
     """
+    prompt = verifier_prompt or VERIFIER_PROMPT
     try:
         r = qwen_client.chat.completions.create(
             model=VERIFIER_MODEL,
             messages=[
-                {"role": "system", "content": VERIFIER_PROMPT},
+                {"role": "system", "content": prompt},
                 {
                     "role": "user",
                     "content":
@@ -152,39 +143,13 @@ def _verify_answer(question: str, draft: str) -> str | None:
 def _looks_like_literature(question: str, draft: str = "") -> bool:
     text = f"{question}\n{draft}".lower()
     words = (
-        "литератур",
-        "произведен",
-        "автор",
-        "писател",
-        "поэт",
-        "роман",
-        "повест",
-        "рассказ",
-        "поэм",
-        "стих",
-        "басн",
-        "герой",
-        "персонаж",
-        "сюжет",
-        "жанр",
-        "лирическ",
-        "эпитет",
-        "метафор",
-        "олицетвор",
-        "цитат",
-        "тема",
-        "идея произведения",
-        "онегин",
-        "печорин",
-        "обломов",
-        "чичиков",
-        "раскольников",
-        "дубровский",
-        "гринев",
-        "мцыри",
-        "чатский",
-        "фамусов",
-        "базаров",
+        "литератур", "произведен", "автор", "писател", "поэт",
+        "роман", "повест", "рассказ", "поэм", "стих", "басн",
+        "герой", "персонаж", "сюжет", "жанр", "лирическ",
+        "эпитет", "метафор", "олицетвор", "цитат", "тема",
+        "идея произведения", "онегин", "печорин", "обломов",
+        "чичиков", "раскольников", "дубровский", "гринев",
+        "мцыри", "чатский", "фамусов", "базаров",
     )
     return any(word in text for word in words)
 
@@ -220,18 +185,55 @@ def _verify_literature_answer(question: str, draft: str) -> str | None:
         return None
 
 
-def ask_qwen_text(question: str) -> str:
-    """Решает задачу основной моделью и проверяет ответ у reasoning-модели.
+# ─── Основной решатель ───────────────────────────────────────────────────────
+def ask_qwen_text(
+    question: str,
+    history: list[dict] | None = None,
+    rag_chunks: list[dict] | None = None,
+    subject_prompt: str = "",
+    detected_subject: str = "auto",
+) -> str:
+    """Решает задачу с учётом истории, RAG-контекста и предметного промпта.
 
-    Если верификатор нашёл ошибку, к решению дописывается
-    «📌 Уточнённый ответ: …».
+    Args:
+        question: текст вопроса
+        history: история диалога [{role, content}]
+        rag_chunks: релевантные фрагменты из базы знаний [{text, source}]
+        subject_prompt: дополнительный промпт для предмета
+        detected_subject: определённый предмет (для выбора верификатора)
     """
+    # Собираем системный промпт
+    system = SYSTEM_PROMPT
+    if subject_prompt:
+        system += subject_prompt
+
+    # Добавляем RAG-контекст
+    if rag_chunks:
+        context_parts = []
+        for c in rag_chunks:
+            source = c.get("source", "")
+            text = c.get("text", "")
+            if source:
+                context_parts.append(f"[Источник: {source}]\n{text}")
+            else:
+                context_parts.append(text)
+        context_text = "\n\n---\n\n".join(context_parts)
+        system += (
+            "\n\n═══ РЕЛЕВАНТНЫЙ МАТЕРИАЛ ИЗ БАЗЫ ЗНАНИЙ ═══\n"
+            "(Используй эту информацию для точности ответа. "
+            "Если материал не относится к вопросу — игнорируй.)\n\n"
+            + context_text
+        )
+
+    # Собираем messages
+    messages = [{"role": "system", "content": system}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": question})
+
     r = qwen_client.chat.completions.create(
         model=TEXT_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": question},
-        ],
+        messages=messages,
         max_tokens=3500,
         temperature=0.1,
     )
@@ -239,28 +241,39 @@ def ask_qwen_text(question: str) -> str:
     if not draft:
         return "Не удалось получить ответ. Попробуй ещё раз."
 
-    correction = _verify_answer(question, draft)
-    if correction:
-        logger.info(f"Verifier предложил исправление: {correction}")
-        draft = (
-            draft.rstrip()
-            + f"\n\n📌 **Уточнённый ответ (после проверки):** {correction}"
-        )
-    if _looks_like_literature(question, draft):
-        literature_correction = _verify_literature_answer(question, draft)
-        if literature_correction:
-            logger.info(
-                f"Literature verifier предложил исправление: {literature_correction}"
-            )
+    # Верификация — ОДИН верификатор на запрос
+    verifier_corrected = False
+    verifier_prompt = SUBJECT_VERIFIER_PROMPTS.get(detected_subject)
+
+    # Если предмет не определён — пробуем автоопределить для верификации
+    if not verifier_prompt and detected_subject == "auto":
+        if _looks_like_literature(question, draft):
+            verifier_prompt = SUBJECT_VERIFIER_PROMPTS.get("literature")
+        else:
+            # Для неопределённого предмета — общий math-верификатор (ловит арифметику)
+            verifier_prompt = VERIFIER_PROMPT
+
+    if verifier_prompt:
+        correction = _verify_answer(question, draft, verifier_prompt)
+        if correction:
+            logger.info(f"Verifier [{detected_subject}] исправление: {correction}")
             draft = (
                 draft.rstrip()
-                + "\n\n📚 **Повторная проверка по литературе:** "
-                + literature_correction
+                + f"\n\n📌 **Уточнённый ответ (после проверки):** {correction}"
             )
+            verifier_corrected = True
+
+    # Источники RAG НЕ показываем пользователю
+
     return draft
 
 
-def ask_qwen_image(image_bytes: bytes, caption: str = "") -> str:
+def ask_qwen_image(
+    image_bytes: bytes,
+    caption: str = "",
+    subject_prompt: str = "",
+    rag_chunks: list[dict] | None = None,
+) -> str:
     """Решает задание с фото."""
     b64 = base64.b64encode(image_bytes).decode("utf-8")
     instruction = (
@@ -276,6 +289,26 @@ def ask_qwen_image(image_bytes: bytes, caption: str = "") -> str:
             "нужно сделать):\n"
             f"«{caption}»"
         )
+
+    system = SYSTEM_PROMPT
+    if subject_prompt:
+        system += subject_prompt
+
+    if rag_chunks:
+        context_parts = []
+        for c in rag_chunks:
+            source = c.get("source", "")
+            text = c.get("text", "")
+            if source:
+                context_parts.append(f"[Источник: {source}]\n{text}")
+            else:
+                context_parts.append(text)
+        context_text = "\n\n---\n\n".join(context_parts)
+        system += (
+            "\n\n═══ РЕЛЕВАНТНЫЙ МАТЕРИАЛ ИЗ БАЗЫ ЗНАНИЙ ═══\n"
+            + context_text
+        )
+
     r = qwen_client.chat.completions.create(
         model=VISION_MODEL,
         messages=[{
@@ -289,7 +322,7 @@ def ask_qwen_image(image_bytes: bytes, caption: str = "") -> str:
                 },
                 {
                     "type": "text",
-                    "text": SYSTEM_PROMPT + "\n\n" + instruction,
+                    "text": system + "\n\n" + instruction,
                 },
             ],
         }],
@@ -298,6 +331,7 @@ def ask_qwen_image(image_bytes: bytes, caption: str = "") -> str:
     content = _sanitize_model_output(r.choices[0].message.content)
     if not content:
         return "Не удалось распознать задание. Попробуй ещё раз."
+
     if _looks_like_literature(caption, content):
         literature_correction = _verify_literature_answer(caption, content)
         if literature_correction:
@@ -309,4 +343,5 @@ def ask_qwen_image(image_bytes: bytes, caption: str = "") -> str:
                 + "\n\n📚 **Повторная проверка по литературе:** "
                 + literature_correction
             )
+
     return content

@@ -1,9 +1,7 @@
 """
-Публикация решения в Mini App (FastAPI бэкенд на Fly.io).
+Публикация решения в Mini App (FastAPI бэкенд).
 
-Аналог `proxy/api-proxy.ts` (третья ветка): пробрасывает решение во
-внешний сервис и возвращает публичный URL вида
-`https://shpargalka-app-….fly.dev/s/<slug>`.
+Отправляет решение в наш Mini App сервер и возвращает URL.
 """
 import json
 import re
@@ -17,11 +15,7 @@ from ..config import (
 
 
 def make_solution_title(answer: str) -> str:
-    """Строит человеко-читаемый заголовок Mini App из ответа модели.
-
-    Берёт первую содержательную строку, очищая ведущие эмодзи и метки
-    «Тип:», «Решение:» и т.п.
-    """
+    """Строит человеко-читаемый заголовок из ответа модели."""
     for raw in (answer or "").split("\n"):
         s = raw.strip()
         if not s:
@@ -44,7 +38,7 @@ def make_solution_title(answer: str) -> str:
 def publish_to_mini_app(
     title: str, content: str, user_id: int | None = None
 ) -> str | None:
-    """Публикует решение в FastAPI-бэкенд Mini App и возвращает URL."""
+    """Публикует решение в Mini App и возвращает URL."""
     if not MINI_APP_BASE_URL or not MINI_APP_API_KEY:
         return None
     payload = json.dumps({
@@ -58,7 +52,7 @@ def publish_to_mini_app(
         headers={
             "Content-Type": "application/json",
             "X-API-Key":    MINI_APP_API_KEY,
-            "User-Agent":   "shpargalka-bot/1.0",
+            "User-Agent":   "shpargalka-bot/2.0",
         },
         method="POST",
     )

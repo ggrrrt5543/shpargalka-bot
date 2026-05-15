@@ -1,0 +1,256 @@
+/* ─── Базовые стили ─────────────────────────────────────────────────────── */
+:root {
+    --bg-primary: #0f0f1a;
+    --bg-secondary: #1a1a2e;
+    --bg-card: #16213e;
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0b0;
+    --accent-blue: #4fc3f7;
+    --accent-yellow: #ffd54f;
+    --accent-green: #81c784;
+    --accent-orange: #ff8a65;
+    --accent-purple: #ba68c8;
+    --border-color: #2a2a4a;
+    --radius: 12px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+.container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 16px;
+}
+
+/* ─── Главная страница ─────────────────────────────────────────────────── */
+h1 {
+    font-size: 2rem;
+    text-align: center;
+    margin: 40px 0 16px;
+}
+
+.subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+}
+
+.btn {
+    display: block;
+    max-width: 280px;
+    margin: 0 auto;
+    padding: 14px 28px;
+    background: var(--accent-blue);
+    color: #000;
+    text-decoration: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    text-align: center;
+    transition: opacity 0.2s;
+}
+
+.btn:hover {
+    opacity: 0.85;
+}
+
+/* ─── Страница решения ─────────────────────────────────────────────────── */
+.solution-page {
+    padding-bottom: 40px;
+}
+
+.solution-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.logo {
+    font-size: 14px;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.solution-title {
+    font-size: 1.4rem;
+    color: var(--accent-yellow);
+    line-height: 1.3;
+}
+
+/* ─── Контент решения ──────────────────────────────────────────────────── */
+.solution-content {
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+.solution-content p {
+    margin-bottom: 12px;
+}
+
+.solution-content strong {
+    color: #fff;
+}
+
+.solution-content em {
+    color: var(--text-secondary);
+}
+
+/* Заголовки секций */
+.section-header {
+    font-size: 1.1rem;
+    margin: 24px 0 12px;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-emoji {
+    font-size: 1.2rem;
+}
+
+/* Формулы */
+.formula-block {
+    margin: 16px 0;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-blue);
+    border-radius: var(--radius);
+    text-align: center;
+    overflow-x: auto;
+}
+
+.formula-label {
+    font-size: 12px;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.formula-content {
+    font-size: 1.2rem;
+    color: var(--accent-yellow);
+}
+
+.formula-fallback {
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Инлайн код */
+.inline-code {
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: var(--accent-green);
+}
+
+/* Блоки кода */
+.code-block {
+    margin: 12px 0;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid var(--border-color);
+}
+
+.code-block code {
+    color: var(--accent-green);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* Разделитель */
+.divider {
+    border: none;
+    height: 1px;
+    background: var(--border-color);
+    margin: 20px 0;
+}
+
+/* KaTeX стили */
+.katex {
+    font-size: 1.1em;
+    color: var(--text-primary);
+}
+
+.formula-block .katex {
+    font-size: 1.3em;
+    color: var(--accent-yellow);
+}
+
+/* ─── Футер ────────────────────────────────────────────────────────────── */
+.solution-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ─── Адаптив ──────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .container {
+        padding: 16px 12px;
+    }
+
+    .solution-title {
+        font-size: 1.2rem;
+    }
+
+    .section-header {
+        font-size: 1rem;
+        padding: 8px 12px;
+    }
+
+    .formula-block {
+        padding: 12px 14px;
+    }
+
+    .formula-content {
+        font-size: 1rem;
+    }
+}
+
+/* ─── Скроллбар ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-blue);
+}

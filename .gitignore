@@ -66,3 +66,12 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# Data (SQLite, ChromaDB, logs)
+data/
+
+# Knowledge base PDFs (large files)
+knowledge_base/**/*.pdf
+
+# Kiro specs
+.kiro/

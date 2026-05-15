@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} — Шпаргалка</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- KaTeX для рендера формул -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="container solution-page">
+        <header class="solution-header">
+            <div class="logo">📚 Шпаргалка</div>
+            <h1 class="solution-title">{{ title }}</h1>
+        </header>
+
+        <main class="solution-content" id="content">
+            {{ content | safe }}
+        </main>
+
+        <footer class="solution-footer">
+            <p>✏️ Проверяй ответы самостоятельно</p>
+        </footer>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        if (window.Telegram && window.Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+
+        // Парсинг markdown-подобного контента
+        document.addEventListener('DOMContentLoaded', function() {
+            const content = document.getElementById('content');
+            let html = content.innerHTML;
+
+            // Обработка блоков ```formula:подпись\n...\n```
+            html = html.replace(/```formula:?(.*?)\n([\s\S]*?)```/g, function(match, label, formula) {
+                const trimmed = formula.trim();
+                const labelHtml = label ? `<div class="formula-label">${label.trim()}</div>` : '';
+                return `<div class="formula-block">${labelHtml}<div class="formula-content">${trimmed}</div></div>`;
+            });
+
+            // Обработка блоков ```math\n...\n```
+            html = html.replace(/```math\n([\s\S]*?)```/g, function(match, formula) {
+                return `<div class="formula-block"><div class="formula-content">${formula.trim()}</div></div>`;
+            });
+
+            // Обработка блоков кода ```lang\n...\n```
+            html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+                return `<pre class="code-block"><code>${code.trim()}</code></pre>`;
+            });
+
+            // Жирный текст **...**
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+            // Курсив *...*
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+            // Инлайн код `...`
+            html = html.replace(/`(.+?)`/g, '<code class="inline-code">$1</code>');
+
+            // Заголовки с эмодзи (📚, 🔍, ✅, и т.д.)
+            html = html.replace(/^(📚|🔍|✅|📖|⚡|💡|📋|🔣)(.*)$/gm, function(match, emoji, rest) {
+                return `<h2 class="section-header"><span class="header-emoji">${emoji}</span>${rest}</h2>`;
+            });
+
+            // Разделители
+            html = html.replace(/^(---|===|\*\*\*)$/gm, '<hr class="divider">');
+
+            // Переносы строк → параграфы
+            const paragraphs = html.split(/\n\n+/);
+            html = paragraphs.map(p => {
+                p = p.trim();
+                if (!p) return '';
+                if (p.startsWith('<h2') || p.startsWith('<div') || p.startsWith('<pre') || p.startsWith('<hr')) {
+                    return p;
+                }
+                // Одиночные переносы внутри параграфа
+                p = p.replace(/\n/g, '<br>');
+                return `<p>${p}</p>`;
+            }).join('\n');
+
+            content.innerHTML = html;
+
+            // Рендер KaTeX формул
+            if (window.renderMathInElement) {
+                renderMathInElement(content, {
+                    delimiters: [
+                        {left: '$', right: '$', display: false},
+                    ],
+                    throwOnError: false,
+                    trust: true,
+                });
+            }
+
+            // Рендер формул в formula-block
+            document.querySelectorAll('.formula-content').forEach(el => {
+                try {
+                    katex.render(el.textContent.trim(), el, {
+                        displayMode: true,
+                        throwOnError: false,
+                        trust: true,
+                    });
+                } catch(e) {
+                    // Если KaTeX не может отрендерить — оставляем как текст
+                    el.classList.add('formula-fallback');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
