@@ -1,10 +1,13 @@
 """
-Публикация решения в Mini App (FastAPI бэкенд).
+Публикация решения в Mini App.
 
-Отправляет решение в наш Mini App сервер и возвращает URL.
+Если Mini App работает в том же процессе — сохраняет напрямую в память.
+Если на внешнем сервере — отправляет HTTP-запрос.
 """
+import hashlib
 import json
 import re
+import time
 import urllib.request
 
 from ..config import (
@@ -38,8 +41,33 @@ def make_solution_title(answer: str) -> str:
 def publish_to_mini_app(
     title: str, content: str, user_id: int | None = None
 ) -> str | None:
-    """Публикует решение в Mini App и возвращает URL."""
-    if not MINI_APP_BASE_URL or not MINI_APP_API_KEY:
+    """Публикует решение в Mini App и возвращает URL.
+
+    Сначала пробует сохранить напрямую (если Mini App в том же процессе).
+    Если не получается — отправляет HTTP-запрос.
+    """
+    if not MINI_APP_BASE_URL:
+        return None
+
+    # Попытка 1: прямое сохранение (если Mini App в том же процессе)
+    try:
+        from mini_app.app import solutions
+        slug = hashlib.md5(f"{content}{time.time()}".encode()).hexdigest()[:8]
+        solutions[slug] = {
+            "title": title,
+            "content": content,
+            "user_id": user_id,
+            "created_at": time.time(),
+        }
+        url = f"{MINI_APP_BASE_URL}/s/{slug}"
+        return url
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning(f"Mini App direct save failed: {e}")
+
+    # Попытка 2: HTTP-запрос (если Mini App на другом сервере)
+    if not MINI_APP_API_KEY:
         return None
     payload = json.dumps({
         "title":   title,
@@ -57,12 +85,11 @@ def publish_to_mini_app(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
             url = data.get("url")
             if isinstance(url, str) and url.startswith("http"):
                 return url
-            logger.error(f"Mini App publish: unexpected response {data}")
             return None
     except Exception as e:
         logger.error(f"Mini App publish error: {e}")
