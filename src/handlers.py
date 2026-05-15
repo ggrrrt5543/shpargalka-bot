@@ -395,20 +395,34 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     rag_chunks = retriever.search(question, subject=detected_subject)
 
     # 7. Решаем
-    thinking_msg = await update.message.reply_text("⏳ Анализирую задачу...\n▓░░░░░░░░░")
+    thinking_msg = await update.message.reply_text("⏳ Анализирую задачу...")
 
     t0 = time.time()
     try:
+        loop = asyncio.get_running_loop()
+
+        # Обновляем статус
+        if rag_chunks:
+            try:
+                await thinking_msg.edit_text("🔍 Нашёл материал в базе знаний...")
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
+
         try:
-            await thinking_msg.edit_text("🧠 Решаю...\n▓▓▓▓▓░░░░░")
+            await thinking_msg.edit_text("🧠 Решаю задачу...")
         except Exception:
             pass
 
-        loop = asyncio.get_running_loop()
         answer = await loop.run_in_executor(
             None, ask_qwen_text, question, history, rag_chunks, subject_prompt, detected_subject
         )
         elapsed_ms = int((time.time() - t0) * 1000)
+
+        try:
+            await thinking_msg.edit_text("✅ Проверяю ответ...")
+        except Exception:
+            pass
 
         if not answer or len(answer) < 10:
             await thinking_msg.edit_text("❌ Не удалось решить. Попробуй ещё раз.")
@@ -443,7 +457,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await db_users.touch(user_id)
     caption = (update.message.caption or "").strip()
 
-    thinking_msg = await update.message.reply_text("📷 Читаю фото...\n▓▓░░░░░░░░")
+    thinking_msg = await update.message.reply_text("📷 Распознаю задание с фото...")
 
     t0 = time.time()
     try:
@@ -451,7 +465,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         photo_bytes = bytes(await photo_file.download_as_bytearray())
 
         try:
-            await thinking_msg.edit_text("🧠 Решаю...\n▓▓▓▓▓░░░░░")
+            await thinking_msg.edit_text("🧠 Решаю задачу...")
         except Exception:
             pass
 
@@ -500,7 +514,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await db_users.touch(user_id)
     caption = (update.message.caption or "").strip()
 
-    thinking_msg = await update.message.reply_text("📷 Читаю фото...\n▓▓░░░░░░░░")
+    thinking_msg = await update.message.reply_text("📷 Распознаю задание...")
 
     t0 = time.time()
     try:
@@ -508,7 +522,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         img_bytes = bytes(await file.download_as_bytearray())
 
         try:
-            await thinking_msg.edit_text("🧠 Решаю...\n▓▓▓▓▓░░░░░")
+            await thinking_msg.edit_text("🧠 Решаю задачу...")
         except Exception:
             pass
 
