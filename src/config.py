@@ -81,11 +81,8 @@ _file_handler.setFormatter(
 )
 logger.addHandler(_file_handler)
 
-# ─── Глобальное состояние (legacy, для обратной совместимости) ────────────────
-# Эти словари используются как fallback если БД недоступна,
-# а также для pending_answers (короткоживущие данные).
-pending_answers: dict[int, str] = {}
-pending_choice_messages: dict[int, int] = {}
+# ─── Глобальное состояние (legacy) ───────────────────────────────────────────
+pending_choice_messages: dict[int, int] = {}  # message_id сообщения с выбором формата
 
 # ─── matplotlib (опционально) ────────────────────────────────────────────────
 try:

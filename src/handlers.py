@@ -30,12 +30,12 @@ from .config import (
     KNOWLEDGE_BASE_PATH,
     MAX_HISTORY_MESSAGES,
     logger,
-    pending_answers,
     pending_choice_messages,
 )
 from .db import analytics as db_analytics
 from .db import cache as db_cache
 from .db import users as db_users
+from .db import pending as db_pending
 from .latex.clean import clean_latex_outside_formulas
 from .latex.short_answer import (
     count_problems,
@@ -303,7 +303,7 @@ async def _show_mystats(message, user_id: int) -> None:
 async def process_answer(update, user_id, thinking_msg, answer, cache_hit=False):
     """Сохраняет ответ и рендерит в выбранном формате."""
     answer = sanitize_model_output(answer)
-    pending_answers[user_id] = answer
+    await db_pending.save_pending(user_id, answer)
 
     if thinking_msg:
         try:
@@ -378,15 +378,15 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # 4. Обновляем пользователя
     await db_users.touch(user_id)
 
-    # 5. Кэш
-    cached = await db_cache.get_cached(question, ttl_hours=CACHE_TTL_HOURS)
+    # 5. Кэш (учитывает предмет)
+    subject = await db_users.get_subject(user_id)
+    cached = await db_cache.get_cached(question, ttl_hours=CACHE_TTL_HOURS, subject=subject)
     if cached:
         await process_answer(update, user_id, None, cached, cache_hit=True)
         await db_analytics.log_event(user_id, question_type="text", cache_hit=True)
         return
 
     # 6. Контекст
-    subject = await db_users.get_subject(user_id)
     history = await memory.get_history(user_id)
     detected_subject = subject
     if subject == "auto":
@@ -401,22 +401,38 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     try:
         loop = asyncio.get_running_loop()
 
-        # Обновляем статус
         if rag_chunks:
             try:
                 await thinking_msg.edit_text("🔍 Нашёл материал в базе знаний...")
             except Exception:
                 pass
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.3)
 
         try:
             await thinking_msg.edit_text("🧠 Решаю задачу...")
         except Exception:
             pass
 
-        answer = await loop.run_in_executor(
-            None, ask_qwen_text, question, history, rag_chunks, subject_prompt, detected_subject
-        )
+        # Таймер прогресса — обновляет сообщение каждые 5 сек
+        async def _progress_timer():
+            elapsed = 5
+            while True:
+                await asyncio.sleep(5)
+                try:
+                    await thinking_msg.edit_text(f"🧠 Решаю задачу... ({elapsed}с)")
+                except Exception:
+                    pass
+                elapsed += 5
+
+        timer_task = asyncio.create_task(_progress_timer())
+
+        try:
+            answer = await loop.run_in_executor(
+                None, ask_qwen_text, question, history, rag_chunks, subject_prompt, detected_subject
+            )
+        finally:
+            timer_task.cancel()
+
         elapsed_ms = int((time.time() - t0) * 1000)
 
         try:
@@ -463,36 +479,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = bytes(await photo_file.download_as_bytearray())
-
-        try:
-            await thinking_msg.edit_text("🧠 Решаю задачу...")
-        except Exception:
-            pass
-
-        subject = await db_users.get_subject(user_id)
-        detected_subject = subject if subject != "auto" else (detect_subject(caption) if caption else "auto")
-        subject_prompt = SUBJECT_PROMPTS.get(detected_subject, "")
-        rag_chunks = retriever.search(caption, subject=detected_subject) if caption else []
-
-        loop = asyncio.get_running_loop()
-        answer = await loop.run_in_executor(
-            None, ask_qwen_image, photo_bytes, caption, subject_prompt, rag_chunks
-        )
-        elapsed_ms = int((time.time() - t0) * 1000)
-
-        if not answer or len(answer) < 10:
-            await thinking_msg.edit_text("❌ Не удалось распознать. Попробуй ещё раз.")
-            return
-
-        await memory.add_message(user_id, "user", f"[фото] {caption}")
-        await memory.add_message(user_id, "assistant", answer[:2000])
-        await db_analytics.log_event(
-            user_id, question_type="photo", subject=detected_subject,
-            response_time_ms=elapsed_ms, rag_used=bool(rag_chunks),
-        )
-        await process_answer(update, user_id, thinking_msg, answer)
-        await cleanup_qwen_chats()
-
+        await _solve_image(update, user_id, photo_bytes, caption, thinking_msg, t0, "photo")
     except Exception as e:
         logger.error(f"Ошибка (фото): {e}")
         try:
@@ -520,42 +507,63 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     try:
         file = await doc.get_file()
         img_bytes = bytes(await file.download_as_bytearray())
-
-        try:
-            await thinking_msg.edit_text("🧠 Решаю задачу...")
-        except Exception:
-            pass
-
-        subject = await db_users.get_subject(user_id)
-        detected_subject = subject if subject != "auto" else (detect_subject(caption) if caption else "auto")
-        subject_prompt = SUBJECT_PROMPTS.get(detected_subject, "")
-        rag_chunks = retriever.search(caption, subject=detected_subject) if caption else []
-
-        loop = asyncio.get_running_loop()
-        answer = await loop.run_in_executor(
-            None, ask_qwen_image, img_bytes, caption, subject_prompt, rag_chunks
-        )
-        elapsed_ms = int((time.time() - t0) * 1000)
-
-        if not answer or len(answer) < 10:
-            await thinking_msg.edit_text("❌ Не удалось распознать.")
-            return
-
-        await memory.add_message(user_id, "user", f"[документ] {caption}")
-        await memory.add_message(user_id, "assistant", answer[:2000])
-        await db_analytics.log_event(
-            user_id, question_type="document", subject=detected_subject,
-            response_time_ms=elapsed_ms, rag_used=bool(rag_chunks),
-        )
-        await process_answer(update, user_id, thinking_msg, answer)
-        await cleanup_qwen_chats()
-
+        await _solve_image(update, user_id, img_bytes, caption, thinking_msg, t0, "document")
     except Exception as e:
         logger.error(f"Ошибка (документ): {e}")
         try:
             await thinking_msg.edit_text("❌ Ошибка.")
         except Exception:
             pass
+
+
+async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, q_type):
+    """Общая логика решения задачи с фото/документа."""
+    try:
+        await thinking_msg.edit_text("🧠 Решаю задачу...")
+    except Exception:
+        pass
+
+    subject = await db_users.get_subject(user_id)
+    detected_subject = subject if subject != "auto" else (detect_subject(caption) if caption else "auto")
+    subject_prompt = SUBJECT_PROMPTS.get(detected_subject, "")
+    rag_chunks = retriever.search(caption, subject=detected_subject) if caption else []
+
+    loop = asyncio.get_running_loop()
+
+    # Таймер прогресса
+    async def _progress_timer():
+        elapsed = 5
+        while True:
+            await asyncio.sleep(5)
+            try:
+                await thinking_msg.edit_text(f"🧠 Решаю задачу... ({elapsed}с)")
+            except Exception:
+                pass
+            elapsed += 5
+
+    timer_task = asyncio.create_task(_progress_timer())
+
+    try:
+        answer = await loop.run_in_executor(
+            None, ask_qwen_image, image_bytes, caption, subject_prompt, rag_chunks
+        )
+    finally:
+        timer_task.cancel()
+
+    elapsed_ms = int((time.time() - t0) * 1000)
+
+    if not answer or len(answer) < 10:
+        await thinking_msg.edit_text("❌ Не удалось распознать. Попробуй ещё раз.")
+        return
+
+    await memory.add_message(user_id, "user", f"[{q_type}] {caption}")
+    await memory.add_message(user_id, "assistant", answer[:2000])
+    await db_analytics.log_event(
+        user_id, question_type=q_type, subject=detected_subject,
+        response_time_ms=elapsed_ms, rag_used=bool(rag_chunks),
+    )
+    await process_answer(update, user_id, thinking_msg, answer)
+    await cleanup_qwen_chats()
 
 
 # ─── Подробный рендер ────────────────────────────────────────────────────────
@@ -688,7 +696,7 @@ async def show_detailed_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.answer()
     except Exception:
         pass
-    answer = pending_answers.get(user_id)
+    answer = await db_pending.get_pending(user_id)
     if not answer:
         try:
             await query.message.reply_text("⚠️ Ответ не найден. Отправь задание заново.")
@@ -711,7 +719,7 @@ async def show_short_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer()
     except Exception:
         pass
-    answer = pending_answers.get(user_id)
+    answer = await db_pending.get_pending(user_id)
     if not answer:
         try:
             await query.message.reply_text("⚠️ Ответ не найден. Отправь задание заново.")

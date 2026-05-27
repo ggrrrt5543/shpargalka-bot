@@ -236,7 +236,6 @@ def ask_qwen_text(
         messages=messages,
         max_tokens=3500,
         temperature=0.1,
-        timeout=60.0,
     )
     draft = _sanitize_model_output(r.choices[0].message.content)
     if not draft:

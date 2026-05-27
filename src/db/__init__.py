@@ -1,9 +1,6 @@
 """
 Персистентное хранилище: SQLite база данных.
-
-Модуль предоставляет async-доступ к таблицам users, conversations,
-cache, analytics, banned_users.
 """
-from .database import get_db, init_db
+from .database import db_read, db_read_all, db_write, get_db, init_db
 
-__all__ = ["init_db", "get_db"]
+__all__ = ["init_db", "get_db", "db_read", "db_read_all", "db_write"]
