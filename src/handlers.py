@@ -5,6 +5,7 @@ import asyncio
 import html
 import io
 import re
+from contextlib import suppress
 import time
 
 from telegram import (
@@ -15,7 +16,7 @@ from telegram import (
     Update,
     WebAppInfo,
 )
-from telegram.constants import ParseMode
+from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
 from .admin import (
@@ -71,6 +72,84 @@ memory = ConversationMemory(
     timeout_minutes=HISTORY_TIMEOUT_MINUTES,
 )
 retriever = KnowledgeRetriever()
+
+
+async def _typing_indicator(context: ContextTypes.DEFAULT_TYPE, chat_id: int) -> None:
+    """Периодически показывает статус «печатает...» в шапке Telegram-чата."""
+    try:
+        while True:
+            try:
+                await context.bot.send_chat_action(
+                    chat_id=chat_id,
+                    action=ChatAction.TYPING,
+                )
+            except Exception:
+                pass
+            await asyncio.sleep(4)
+    except asyncio.CancelledError:
+        raise
+
+
+async def _stop_background_task(task: asyncio.Task | None) -> None:
+    if not task:
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+
+def _typing_chunks(text: str, step: int = 45) -> list[str]:
+    """Режет текст на куски для плавного редактирования сообщения."""
+    if len(text) <= step:
+        return [text]
+
+    chunks = []
+    pos = 0
+    while pos < len(text):
+        next_pos = min(len(text), pos + step)
+        if next_pos < len(text):
+            boundary = max(
+                text.rfind("\n", pos, next_pos),
+                text.rfind(" ", pos, next_pos),
+            )
+            if boundary > pos + 15:
+                next_pos = boundary + 1
+        chunks.append(text[:next_pos].rstrip())
+        pos = next_pos
+    return chunks
+
+
+async def _reply_typing_text(
+    target_msg,
+    text: str,
+    *,
+    final_text: str | None = None,
+    parse_mode=None,
+    reply_markup=None,
+) -> None:
+    """Показывает короткий ответ постепенным редактированием одного сообщения."""
+    chunks = _typing_chunks(text)
+    msg = await target_msg.reply_text(chunks[0])
+
+    for chunk in chunks[1:]:
+        await asyncio.sleep(0.25)
+        try:
+            await msg.edit_text(chunk)
+        except Exception:
+            return
+
+    if final_text or reply_markup:
+        await asyncio.sleep(0.2)
+        try:
+            await msg.edit_text(
+                final_text or text,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+            )
+        except Exception:
+            if reply_markup:
+                with suppress(Exception):
+                    await msg.edit_reply_markup(reply_markup=reply_markup)
 
 # ─── Постоянная клавиатура (вместо /команд) ──────────────────────────────────
 BTN_SETTINGS = "⚙ Настройки"
@@ -396,6 +475,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # 7. Решаем
     thinking_msg = await update.message.reply_text("⏳ Анализирую задачу...")
+    typing_task = asyncio.create_task(
+        _typing_indicator(context, update.effective_chat.id)
+    )
 
     t0 = time.time()
     try:
@@ -433,6 +515,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         finally:
             timer_task.cancel()
 
+        await _stop_background_task(typing_task)
+        typing_task = None
         elapsed_ms = int((time.time() - t0) * 1000)
 
         try:
@@ -441,6 +525,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             pass
 
         if not answer or len(answer) < 10:
+            await _stop_background_task(typing_task)
+            typing_task = None
             await thinking_msg.edit_text("❌ Не удалось решить. Попробуй ещё раз.")
             return
 
@@ -458,6 +544,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await cleanup_qwen_chats()
 
     except Exception as e:
+        await _stop_background_task(typing_task)
         logger.error(f"Ошибка (текст): {e}")
         try:
             await thinking_msg.edit_text("❌ Ошибка. Попробуй ещё раз.")
@@ -474,13 +561,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     caption = (update.message.caption or "").strip()
 
     thinking_msg = await update.message.reply_text("📷 Распознаю задание с фото...")
+    typing_task = asyncio.create_task(
+        _typing_indicator(context, update.effective_chat.id)
+    )
 
     t0 = time.time()
     try:
         photo_file = await update.message.photo[-1].get_file()
         photo_bytes = bytes(await photo_file.download_as_bytearray())
-        await _solve_image(update, user_id, photo_bytes, caption, thinking_msg, t0, "photo")
+        await _solve_image(update, user_id, photo_bytes, caption, thinking_msg, t0, "photo", typing_task)
+        typing_task = None
     except Exception as e:
+        await _stop_background_task(typing_task)
         logger.error(f"Ошибка (фото): {e}")
         try:
             await thinking_msg.edit_text("❌ Ошибка. Попробуй ещё раз.")
@@ -502,13 +594,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     caption = (update.message.caption or "").strip()
 
     thinking_msg = await update.message.reply_text("📷 Распознаю задание...")
+    typing_task = asyncio.create_task(
+        _typing_indicator(context, update.effective_chat.id)
+    )
 
     t0 = time.time()
     try:
         file = await doc.get_file()
         img_bytes = bytes(await file.download_as_bytearray())
-        await _solve_image(update, user_id, img_bytes, caption, thinking_msg, t0, "document")
+        await _solve_image(update, user_id, img_bytes, caption, thinking_msg, t0, "document", typing_task)
+        typing_task = None
     except Exception as e:
+        await _stop_background_task(typing_task)
         logger.error(f"Ошибка (документ): {e}")
         try:
             await thinking_msg.edit_text("❌ Ошибка.")
@@ -516,7 +613,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             pass
 
 
-async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, q_type):
+async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, q_type, typing_task=None):
     """Общая логика решения задачи с фото/документа."""
     try:
         await thinking_msg.edit_text("🧠 Решаю задачу...")
@@ -550,9 +647,11 @@ async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, 
     finally:
         timer_task.cancel()
 
+    await _stop_background_task(typing_task)
     elapsed_ms = int((time.time() - t0) * 1000)
 
     if not answer or len(answer) < 10:
+        await _stop_background_task(typing_task)
         await thinking_msg.edit_text("❌ Не удалось распознать. Попробуй ещё раз.")
         return
 
@@ -682,7 +781,13 @@ async def _render_short(target_msg, user_id: int, answer: str) -> None:
     ]])
 
     try:
-        await target_msg.reply_text(pretty, parse_mode=ParseMode.HTML, reply_markup=kb)
+        await _reply_typing_text(
+            target_msg,
+            "✅ Ответ готов\n\n" + "\n".join(lines) + "\n\n✏️ Проверяй ответы самостоятельно",
+            final_text=pretty,
+            parse_mode=ParseMode.HTML,
+            reply_markup=kb,
+        )
     except Exception:
         for chunk in [short_answer[i:i+4000] for i in range(0, len(short_answer), 4000)]:
             await target_msg.reply_text(chunk)
