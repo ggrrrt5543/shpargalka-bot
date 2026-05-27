@@ -810,7 +810,7 @@ async def show_detailed_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
     if user_id in pending_choice_messages:
         try:
-            await query.message.delete()
+            await query.message.edit_text("🌐 Готовлю подробное решение...")
         except Exception:
             pass
         del pending_choice_messages[user_id]
@@ -833,7 +833,7 @@ async def show_short_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     if user_id in pending_choice_messages:
         try:
-            await query.message.delete()
+            await query.message.edit_text("⚡ Печатаю краткий ответ...")
         except Exception:
             pass
         del pending_choice_messages[user_id]
