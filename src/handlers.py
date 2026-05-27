@@ -543,9 +543,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await process_answer(update, user_id, thinking_msg, answer)
         await cleanup_qwen_chats()
 
-    except Exception as e:
+    except Exception:
         await _stop_background_task(typing_task)
-        logger.error(f"Ошибка (текст): {e}")
+        logger.exception("Ошибка обработки текстового запроса")
         try:
             await thinking_msg.edit_text("❌ Ошибка. Попробуй ещё раз.")
         except Exception:
@@ -571,9 +571,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         photo_bytes = bytes(await photo_file.download_as_bytearray())
         await _solve_image(update, user_id, photo_bytes, caption, thinking_msg, t0, "photo", typing_task)
         typing_task = None
-    except Exception as e:
+    except Exception:
         await _stop_background_task(typing_task)
-        logger.error(f"Ошибка (фото): {e}")
+        logger.exception("Ошибка обработки фото")
         try:
             await thinking_msg.edit_text("❌ Ошибка. Попробуй ещё раз.")
         except Exception:
@@ -604,9 +604,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         img_bytes = bytes(await file.download_as_bytearray())
         await _solve_image(update, user_id, img_bytes, caption, thinking_msg, t0, "document", typing_task)
         typing_task = None
-    except Exception as e:
+    except Exception:
         await _stop_background_task(typing_task)
-        logger.error(f"Ошибка (документ): {e}")
+        logger.exception("Ошибка обработки документа")
         try:
             await thinking_msg.edit_text("❌ Ошибка.")
         except Exception:
