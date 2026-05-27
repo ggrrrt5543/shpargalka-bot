@@ -40,6 +40,202 @@
             const content = document.getElementById('content');
             let html = content.innerHTML;
 
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function niceStep(span) {
+                const target = span / 8;
+                if (!isFinite(target) || target <= 0) return 1;
+                const mag = Math.pow(10, Math.floor(Math.log10(target)));
+                for (const k of [1, 2, 2.5, 5, 10]) {
+                    const step = k * mag;
+                    if (step >= target) return step;
+                }
+                return mag * 10;
+            }
+
+            function parseEquationExpression(equation) {
+                const raw = String(equation || '').trim();
+                const expr = raw.includes('=') ? raw.split('=').slice(1).join('=') : raw;
+                return expr
+                    .replace(/\^/g, '**')
+                    .replace(/π/g, 'Math.PI')
+                    .replace(/\be\b/g, 'Math.E')
+                    .replace(/\bsin\b/g, 'Math.sin')
+                    .replace(/\bcos\b/g, 'Math.cos')
+                    .replace(/\btan\b/g, 'Math.tan')
+                    .replace(/\basin\b|\barcsin\b/g, 'Math.asin')
+                    .replace(/\bacos\b|\barccos\b/g, 'Math.acos')
+                    .replace(/\batan\b|\barctan\b/g, 'Math.atan')
+                    .replace(/\bln\b/g, 'Math.log')
+                    .replace(/\blog10\b/g, 'Math.log10')
+                    .replace(/\blog\b/g, 'Math.log')
+                    .replace(/\bsqrt\b/g, 'Math.sqrt')
+                    .replace(/\babs\b/g, 'Math.abs')
+                    .replace(/(\d)\s*x/g, '$1*x')
+                    .replace(/x\s*(\d)/g, 'x*$1');
+            }
+
+            function evaluateExpression(expression, x) {
+                if (!/^[0-9xX+\-*/().,\s_MathPIEacosinlrtgbqepw]+$/.test(expression)) {
+                    return NaN;
+                }
+                try {
+                    return Function('x', `"use strict"; return (${expression});`)(x);
+                } catch (e) {
+                    return NaN;
+                }
+            }
+
+            function renderVisualization(spec) {
+                const cs = spec.coordinate_system || {};
+                const objects = Array.isArray(spec.objects) ? spec.objects : [];
+                const xRange = Array.isArray(cs.x_range) ? cs.x_range : [-10, 10];
+                const yRange = Array.isArray(cs.y_range) ? cs.y_range : [-10, 10];
+                const xMin = Number(xRange[0]);
+                const xMax = Number(xRange[1]);
+                const yMin = Number(yRange[0]);
+                const yMax = Number(yRange[1]);
+                if (![xMin, xMax, yMin, yMax].every(Number.isFinite) || xMin >= xMax || yMin >= yMax) {
+                    return `<pre class="visualization-error">Некорректная система координат</pre>`;
+                }
+
+                if (spec.type === '3d') {
+                    return `<div class="visualization-block"><div class="visualization-title">${escapeHtml(spec.title || '3D visualization')}</div><pre class="visualization-json">${escapeHtml(JSON.stringify(spec, null, 2))}</pre></div>`;
+                }
+
+                const W = 720;
+                const H = 460;
+                const L = 58;
+                const R = 24;
+                const T = 34;
+                const B = 48;
+                const plotW = W - L - R;
+                const plotH = H - T - B;
+                const sx = x => L + (x - xMin) / (xMax - xMin) * plotW;
+                const sy = y => T + (yMax - y) / (yMax - yMin) * plotH;
+                const parts = [];
+
+                parts.push(`<div class="visualization-block">`);
+                if (spec.title) {
+                    parts.push(`<div class="visualization-title">${escapeHtml(spec.title)}</div>`);
+                }
+                parts.push(`<svg class="math-visualization" viewBox="0 0 ${W} ${H}" role="img">`);
+                parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`);
+                parts.push(`<rect x="${L}" y="${T}" width="${plotW}" height="${plotH}" fill="#ffffff" stroke="#d0d0d0" stroke-width="1"/>`);
+
+                if (cs.show_grid !== false) {
+                    const stepX = niceStep(xMax - xMin);
+                    const stepY = niceStep(yMax - yMin);
+                    for (let gx = Math.ceil(xMin / stepX) * stepX; gx <= xMax + 1e-9; gx += stepX) {
+                        const X = sx(gx);
+                        parts.push(`<line class="grid" x1="${X.toFixed(2)}" y1="${T}" x2="${X.toFixed(2)}" y2="${T + plotH}"/>`);
+                        if (Math.abs(gx) > 1e-9) {
+                            parts.push(`<text class="tick-label" x="${X.toFixed(2)}" y="${T + plotH + 18}" text-anchor="middle">${Number(gx.toPrecision(4))}</text>`);
+                        }
+                    }
+                    for (let gy = Math.ceil(yMin / stepY) * stepY; gy <= yMax + 1e-9; gy += stepY) {
+                        const Y = sy(gy);
+                        parts.push(`<line class="grid" x1="${L}" y1="${Y.toFixed(2)}" x2="${L + plotW}" y2="${Y.toFixed(2)}"/>`);
+                        if (Math.abs(gy) > 1e-9) {
+                            parts.push(`<text class="tick-label" x="${L - 8}" y="${(Y + 4).toFixed(2)}" text-anchor="end">${Number(gy.toPrecision(4))}</text>`);
+                        }
+                    }
+                }
+
+                if (cs.show_axes !== false) {
+                    if (xMin <= 0 && xMax >= 0) {
+                        const X0 = sx(0);
+                        parts.push(`<line class="axis" x1="${X0.toFixed(2)}" y1="${T}" x2="${X0.toFixed(2)}" y2="${T + plotH}"/>`);
+                    }
+                    if (yMin <= 0 && yMax >= 0) {
+                        const Y0 = sy(0);
+                        parts.push(`<line class="axis" x1="${L}" y1="${Y0.toFixed(2)}" x2="${L + plotW}" y2="${Y0.toFixed(2)}"/>`);
+                    }
+                    parts.push(`<text class="axis-label" x="${L + plotW - 4}" y="${T + plotH - 8}" text-anchor="end">x</text>`);
+                    parts.push(`<text class="axis-label" x="${L + 10}" y="${T + 16}">y</text>`);
+                }
+
+                for (const obj of objects) {
+                    if (!obj || typeof obj !== 'object') continue;
+                    if (obj.type === 'line' && Array.isArray(obj.from) && Array.isArray(obj.to)) {
+                        parts.push(`<line class="math-line" x1="${sx(Number(obj.from[0])).toFixed(2)}" y1="${sy(Number(obj.from[1])).toFixed(2)}" x2="${sx(Number(obj.to[0])).toFixed(2)}" y2="${sy(Number(obj.to[1])).toFixed(2)}"/>`);
+                    } else if (obj.type === 'circle' && Array.isArray(obj.center)) {
+                        const cx = Number(obj.center[0]);
+                        const cy = Number(obj.center[1]);
+                        const rx = Math.abs(sx(cx + Number(obj.radius)) - sx(cx));
+                        const ry = Math.abs(sy(cy + Number(obj.radius)) - sy(cy));
+                        parts.push(`<ellipse class="math-circle" cx="${sx(cx).toFixed(2)}" cy="${sy(cy).toFixed(2)}" rx="${rx.toFixed(2)}" ry="${ry.toFixed(2)}"/>`);
+                    } else if (obj.type === 'function') {
+                        const expression = parseEquationExpression(obj.equation);
+                        const domain = Array.isArray(obj.domain) ? obj.domain : [xMin, xMax];
+                        const a = Math.max(xMin, Number(domain[0]));
+                        const b = Math.min(xMax, Number(domain[1]));
+                        const segments = [];
+                        let current = [];
+                        const n = 900;
+                        for (let i = 0; i <= n; i++) {
+                            const x = a + (b - a) * i / n;
+                            const y = evaluateExpression(expression, x);
+                            if (!Number.isFinite(y) || y < yMin - (yMax - yMin) || y > yMax + (yMax - yMin)) {
+                                if (current.length) {
+                                    segments.push(current);
+                                    current = [];
+                                }
+                                continue;
+                            }
+                            const point = `${current.length ? 'L' : 'M'}${sx(x).toFixed(2)},${sy(y).toFixed(2)}`;
+                            current.push(point);
+                        }
+                        if (current.length) segments.push(current);
+                        for (const segment of segments) {
+                            parts.push(`<path class="function-curve" d="${segment.join(' ')}"/>`);
+                        }
+                        if (obj.equation) {
+                            parts.push(`<text class="function-label" x="${L + plotW - 8}" y="${T + 22}">${escapeHtml(obj.equation)}</text>`);
+                        }
+                        if (Array.isArray(obj.important_points)) {
+                            for (const p of obj.important_points) {
+                                if (Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))) {
+                                    parts.push(`<circle class="math-point important" cx="${sx(Number(p.x)).toFixed(2)}" cy="${sy(Number(p.y)).toFixed(2)}" r="4"/>`);
+                                    if (p.label) {
+                                        parts.push(`<text class="point-label" x="${(sx(Number(p.x)) + 7).toFixed(2)}" y="${(sy(Number(p.y)) - 7).toFixed(2)}">${escapeHtml(p.label)}</text>`);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (const obj of objects) {
+                    if (obj && obj.type === 'point' && Number.isFinite(Number(obj.x)) && Number.isFinite(Number(obj.y))) {
+                        parts.push(`<circle class="math-point" cx="${sx(Number(obj.x)).toFixed(2)}" cy="${sy(Number(obj.y)).toFixed(2)}" r="4"/>`);
+                        if (obj.label) {
+                            parts.push(`<text class="point-label" x="${(sx(Number(obj.x)) + 7).toFixed(2)}" y="${(sy(Number(obj.y)) - 7).toFixed(2)}">${escapeHtml(obj.label)}</text>`);
+                        }
+                    }
+                }
+
+                parts.push(`</svg>`);
+                parts.push(`</div>`);
+                return parts.join('');
+            }
+
+            // Обработка блоков ```visualization\n{...}\n```
+            html = html.replace(/```visualization\n([\s\S]*?)```/g, function(match, jsonText) {
+                try {
+                    return renderVisualization(JSON.parse(jsonText.trim()));
+                } catch (e) {
+                    return `<pre class="visualization-error">${escapeHtml(jsonText.trim())}</pre>`;
+                }
+            });
+
             // Обработка блоков ```formula:подпись\n...\n```
             html = html.replace(/```formula:?(.*?)\n([\s\S]*?)```/g, function(match, label, formula) {
                 const trimmed = formula.trim();

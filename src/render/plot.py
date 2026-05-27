@@ -223,7 +223,7 @@ def plot_function_svg(
             f'font-family="sans-serif" font-size="10">'
         )
         parts.append(
-            f'<rect x="0" y="0" width="{W}" height="{H}" fill="#1a1a2e"/>'
+            f'<rect x="0" y="0" width="{W}" height="{H}" fill="#ffffff"/>'
         )
         gx = _m.ceil(x_min / step_x) * step_x
         while gx <= x_max + 1e-9:
@@ -231,7 +231,7 @@ def plot_function_svg(
             parts.append(
                 f'<line class="grid" x1="{X:.1f}" y1="{T}" '
                 f'x2="{X:.1f}" y2="{T+plot_h}" '
-                f'stroke="#444" stroke-width="0.5" opacity="0.6"/>'
+                f'stroke="#e0e0e0" stroke-width="0.6"/>'
             )
             gx += step_x
         gy = _m.ceil(y_min / step_y) * step_y
@@ -240,7 +240,7 @@ def plot_function_svg(
             parts.append(
                 f'<line class="grid" x1="{L}" y1="{Y:.1f}" '
                 f'x2="{L+plot_w}" y2="{Y:.1f}" '
-                f'stroke="#444" stroke-width="0.5" opacity="0.6"/>'
+                f'stroke="#e0e0e0" stroke-width="0.6"/>'
             )
             gy += step_y
 
@@ -248,13 +248,13 @@ def plot_function_svg(
             X0 = sx(0)
             parts.append(
                 f'<line class="axis" x1="{X0:.1f}" y1="{T}" '
-                f'x2="{X0:.1f}" y2="{T+plot_h}" stroke="#bbb" stroke-width="1"/>'
+                f'x2="{X0:.1f}" y2="{T+plot_h}" stroke="#555" stroke-width="1"/>'
             )
         if y_min <= 0 <= y_max:
             Y0 = sy(0)
             parts.append(
                 f'<line class="axis" x1="{L}" y1="{Y0:.1f}" '
-                f'x2="{L+plot_w}" y2="{Y0:.1f}" stroke="#bbb" stroke-width="1"/>'
+                f'x2="{L+plot_w}" y2="{Y0:.1f}" stroke="#555" stroke-width="1"/>'
             )
 
         gx = _m.ceil(x_min / step_x) * step_x
@@ -269,7 +269,7 @@ def plot_function_svg(
                 )
                 parts.append(
                     f'<text x="{X:.1f}" y="{min(T+plot_h+12, y_label+12):.1f}" '
-                    f'fill="#bbb" text-anchor="middle">{v}</text>'
+                    f'fill="#222" text-anchor="middle">{v}</text>'
                 )
             gx += step_x
         gy = _m.ceil(y_min / step_y) * step_y
@@ -284,17 +284,17 @@ def plot_function_svg(
                 )
                 parts.append(
                     f'<text x="{max(L-4, x_label-4):.1f}" y="{Y+3:.1f}" '
-                    f'fill="#bbb" text-anchor="end">{v}</text>'
+                    f'fill="#222" text-anchor="end">{v}</text>'
                 )
             gy += step_y
 
         parts.append(
             f'<text x="{L+plot_w-2}" y="{T+plot_h-4}" '
-            f'fill="#aaa" text-anchor="end" font-style="italic">x</text>'
+            f'fill="#222" text-anchor="end" font-style="italic">x</text>'
         )
         parts.append(
             f'<text x="{L+4}" y="{T+10}" '
-            f'fill="#aaa" text-anchor="start" font-style="italic">y</text>'
+            f'fill="#222" text-anchor="start" font-style="italic">y</text>'
         )
 
         d_parts: list[str] = []
@@ -315,7 +315,7 @@ def plot_function_svg(
             d = " ".join(d_parts)
             parts.append(
                 f'<path d="{d}" fill="none" '
-                f'stroke="#4fc3f7" stroke-width="2" '
+                f'stroke="#1565c0" stroke-width="2" '
                 f'stroke-linecap="round" stroke-linejoin="round"/>'
             )
 
@@ -326,7 +326,7 @@ def plot_function_svg(
                      .replace(">", "&gt;")
             )
             parts.append(
-                f'<text x="{W/2:.0f}" y="16" fill="#ffd54f" '
+                f'<text x="{W/2:.0f}" y="16" fill="#222" '
                 f'text-anchor="middle" font-size="13" '
                 f'font-weight="bold">{safe_label}</text>'
             )
@@ -381,29 +381,31 @@ def plot_function_png(
                 y[j + 1] = np.nan
 
         fig, ax = plt.subplots(figsize=(7, 5))
-        ax.set_facecolor("#1a1a2e")
-        fig.patch.set_facecolor("#1a1a2e")
-        ax.plot(x, y, color="#4fc3f7", linewidth=2.4)
-        ax.axhline(0, color="#888", linewidth=0.7)
-        ax.axvline(0, color="#888", linewidth=0.7)
-        ax.grid(True, color="#444", alpha=0.5, linewidth=0.5)
+        ax.set_facecolor("#ffffff")
+        fig.patch.set_facecolor("#ffffff")
+        ax.plot(x, y, color="#1565c0", linewidth=2.0)
+        ax.axhline(0, color="#555555", linewidth=0.9)
+        ax.axvline(0, color="#555555", linewidth=0.9)
+        ax.grid(True, color="#e0e0e0", alpha=1.0, linewidth=0.6)
         for spine in ax.spines.values():
-            spine.set_color("#666")
-        ax.tick_params(colors="#bbb", labelsize=9)
+            spine.set_color("#9e9e9e")
+            spine.set_linewidth(0.8)
+        ax.tick_params(colors="#222222", labelsize=9)
         finite_y = y[np.isfinite(y)]
         if finite_y.size:
             y_lo, y_hi = float(np.nanmin(finite_y)), float(np.nanmax(finite_y))
             pad = max(1.0, (y_hi - y_lo) * 0.1)
             ax.set_ylim(max(-y_clip, y_lo - pad), min(y_clip, y_hi + pad))
         ax.set_xlim(x_min, x_max)
+        ax.set_aspect("equal", adjustable="box")
         if label:
-            ax.set_title(label, color="#ffd54f", fontsize=14, pad=10)
-        ax.set_xlabel("x", color="#bbb")
-        ax.set_ylabel("y", color="#bbb")
+            ax.set_title(label, color="#222222", fontsize=14, pad=10)
+        ax.set_xlabel("x", color="#222222")
+        ax.set_ylabel("y", color="#222222")
         plt.tight_layout()
         buf = io.BytesIO()
         plt.savefig(
-            buf, format="png", dpi=140, facecolor="#1a1a2e",
+            buf, format="png", dpi=140, facecolor="#ffffff",
             edgecolor="none", bbox_inches="tight",
         )
         plt.close(fig)
