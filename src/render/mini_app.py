@@ -67,6 +67,20 @@ def publish_to_mini_app(
     """
     base_url = _get_public_base_url()
     if not base_url:
+        logger.error(
+            "Mini App publish skipped: MINI_APP_BASE_URL and "
+            "RAILWAY_PUBLIC_DOMAIN are empty"
+        )
+        return None
+    if "localhost" in base_url:
+        logger.error(
+            f"Mini App publish skipped: public base URL points to localhost: {base_url}"
+        )
+        return None
+    if not base_url.startswith("https://"):
+        logger.error(
+            f"Mini App publish skipped: public base URL must be HTTPS: {base_url}"
+        )
         return None
 
     # Попытка 1: прямое сохранение (если Mini App в том же процессе)
@@ -80,6 +94,7 @@ def publish_to_mini_app(
             "created_at": time.time(),
         }
         url = f"{base_url}/s/{slug}"
+        logger.info(f"Mini App direct publish OK: {url}")
         return url
     except ImportError:
         pass
@@ -88,6 +103,7 @@ def publish_to_mini_app(
 
     # Попытка 2: HTTP-запрос (если Mini App на другом сервере)
     if not MINI_APP_API_KEY:
+        logger.error("Mini App HTTP publish skipped: MINI_APP_API_KEY is empty")
         return None
     payload = json.dumps({
         "title":   title,
@@ -109,7 +125,9 @@ def publish_to_mini_app(
             data = json.loads(resp.read())
             url = data.get("url")
             if isinstance(url, str) and url.startswith("http"):
+                logger.info(f"Mini App HTTP publish OK: {url}")
                 return url
+            logger.error(f"Mini App publish returned invalid URL: {data}")
             return None
     except Exception as e:
         logger.error(f"Mini App publish error: {e}")

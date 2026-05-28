@@ -721,6 +721,8 @@ async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
             return
         except Exception:
             logger.exception(f"Не удалось отправить Mini App кнопку: {mini_app_url}")
+    else:
+        logger.error("Mini App URL is empty, falling back to Telegraph")
 
     # Telegraph
     telegraph_url = None
