@@ -705,15 +705,21 @@ async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
         pass
 
     if mini_app_url:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📖 Открыть в приложении", web_app=WebAppInfo(url=mini_app_url))],
-            [InlineKeyboardButton("🌐 Открыть в браузере", url=mini_app_url)],
-        ])
+        buttons = []
+        if mini_app_url.startswith("https://"):
+            buttons.append([
+                InlineKeyboardButton(
+                    "📖 Открыть в приложении",
+                    web_app=WebAppInfo(url=mini_app_url),
+                )
+            ])
+        buttons.append([InlineKeyboardButton("🌐 Открыть в браузере", url=mini_app_url)])
+        kb = InlineKeyboardMarkup(buttons)
         try:
             await target_msg.reply_text("✅ Решение готово!", reply_markup=kb)
+            return
         except Exception:
-            pass
-        return
+            logger.exception(f"Не удалось отправить Mini App кнопку: {mini_app_url}")
 
     # Telegraph
     telegraph_url = None
