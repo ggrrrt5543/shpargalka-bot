@@ -17,6 +17,25 @@ from ..config import (
 )
 
 
+def _get_public_base_url() -> str:
+    """Возвращает публичный HTTPS URL Mini App.
+
+    Railway сам прокидывает RAILWAY_PUBLIC_DOMAIN после генерации домена.
+    Это защищает от частой ошибки, когда в переменных остался
+    MINI_APP_BASE_URL=http://localhost:8000 и Telegram не принимает WebApp.
+    """
+    railway_domain = (os.environ.get("RAILWAY_PUBLIC_DOMAIN") or "").strip().strip("/")
+    if railway_domain:
+        if railway_domain.startswith(("http://", "https://")):
+            return railway_domain.replace("http://", "https://", 1).rstrip("/")
+        return f"https://{railway_domain}"
+
+    base_url = (MINI_APP_BASE_URL or "").strip().rstrip("/")
+    if base_url.startswith("http://") and "localhost" not in base_url:
+        return base_url.replace("http://", "https://", 1)
+    return base_url
+
+
 def make_solution_title(answer: str) -> str:
     """Строит человеко-читаемый заголовок из ответа модели."""
     for raw in (answer or "").split("\n"):
@@ -46,7 +65,8 @@ def publish_to_mini_app(
     Сначала пробует сохранить напрямую (если Mini App в том же процессе).
     Если не получается — отправляет HTTP-запрос.
     """
-    if not MINI_APP_BASE_URL:
+    base_url = _get_public_base_url()
+    if not base_url:
         return None
 
     # Попытка 1: прямое сохранение (если Mini App в том же процессе)
@@ -59,7 +79,7 @@ def publish_to_mini_app(
             "user_id": user_id,
             "created_at": time.time(),
         }
-        url = f"{MINI_APP_BASE_URL}/s/{slug}"
+        url = f"{base_url}/s/{slug}"
         return url
     except ImportError:
         pass
@@ -75,7 +95,7 @@ def publish_to_mini_app(
         "user_id": user_id,
     }).encode("utf-8")
     req = urllib.request.Request(
-        f"{MINI_APP_BASE_URL}/api/solutions",
+        f"{base_url}/api/solutions",
         data=payload,
         headers={
             "Content-Type": "application/json",

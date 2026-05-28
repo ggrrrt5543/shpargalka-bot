@@ -714,6 +714,7 @@ async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
                 )
             ])
         buttons.append([InlineKeyboardButton("🌐 Открыть в браузере", url=mini_app_url)])
+        buttons.append([InlineKeyboardButton("⚡ Посмотреть кратко", callback_data="show_short")])
         kb = InlineKeyboardMarkup(buttons)
         try:
             await target_msg.reply_text("✅ Решение готово!", reply_markup=kb)
