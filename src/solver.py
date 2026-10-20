@@ -27,7 +27,7 @@ from .latex.prompts import (
 )
 
 
-# ─── Очистка технического мусора провайдера ──────────────────────────────────
+# Очистка технического мусора провайдера
 _DETAILS_RE = re.compile(r"<details\b.*?</details>", re.IGNORECASE | re.DOTALL)
 _DETAILS_OPEN_RE = re.compile(r"<details\b.*", re.IGNORECASE | re.DOTALL)
 _DETAILS_TAG_RE = re.compile(
@@ -59,7 +59,7 @@ def _sanitize_model_output(text: str | None) -> str:
 sanitize_model_output = _sanitize_model_output
 
 
-# ─── Удаление чатов Qwen ────────────────────────────────────────────────────
+# Удаление чатов Qwen
 def delete_qwen_chats() -> bool:
     """Удаляет историю чатов Qwen через endpoint прокси."""
     if getattr(delete_qwen_chats, "_unsupported", False):
@@ -103,7 +103,7 @@ def delete_qwen_chats() -> bool:
     return False
 
 
-# ─── Верификатор ─────────────────────────────────────────────────────────────
+# Верификатор
 def _verify_answer(question: str, draft: str, verifier_prompt: str | None = None) -> str | None:
     """Проверяет черновое решение reasoning-моделью.
 
@@ -185,7 +185,7 @@ def _verify_literature_answer(question: str, draft: str) -> str | None:
         return None
 
 
-# ─── Основной решатель ───────────────────────────────────────────────────────
+# Основной решатель
 def ask_qwen_text(
     question: str,
     history: list[dict] | None = None,

@@ -44,7 +44,7 @@ def clean_latex(text: str) -> str:
     return text
 
 
-# ─── Очистка многострочных $$...$$ блоков и character-stacking ───────────────
+# Очистка многострочных $$...$$ блоков и character-stacking
 _DISPLAY_MATH_RE = re.compile(r"\$\$(.+?)\$\$", re.DOTALL)
 _DISPLAY_BRACKET_RE = re.compile(r"\\\[(.+?)\\\]", re.DOTALL)
 
