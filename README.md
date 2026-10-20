@@ -1,3 +1,5 @@
+<img src="assets/readme-cover.svg" alt="Шпаргалка-бот — Задачи по фото и тексту в Telegram" width="100%">
+
 # 🤖 Шпаргалка-бот
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -165,3 +167,8 @@ A: Включите debug-логи (`logging.DEBUG` в `src/config.py`) и по�
 ## ⭐ Спасибо за использование!
 
 Если проект вам понравился, поставьте ⭐ на GitHub!
+
+
+---
+
+Maintained by [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
