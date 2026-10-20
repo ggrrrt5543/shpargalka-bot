@@ -23,8 +23,8 @@ Telegram-бот, который решает школьные/вузовские
 ## 📋 Требования
 
 - Python 3.8+
-- Telegram Bot Token
-- Qwen API Token
+- Токен Telegram-бота
+- API-токен Qwen
 
 ## 🚀 Быстрый старт
 
@@ -59,7 +59,7 @@ QWEN_TOKEN=ваш_jwt_токен
 
 ### 2. Получите токены
 
-#### Telegram Bot Token
+#### Токен Telegram-бота
 1. Откройте [@BotFather](https://t.me/BotFather) в Telegram
 2. Отправьте `/newbot`
 3. Следуйте инструкциям, получите токен
@@ -171,4 +171,4 @@ A: Включите debug-логи (`logging.DEBUG` в `src/config.py`) и по�
 
 ---
 
-Maintained by [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
+Автор и поддержка — [ggrrrt5543](https://github.com/ggrrrt5543). Инструкции, ограничения и сведения о сторонних компонентах приведены выше.
