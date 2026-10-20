@@ -65,7 +65,7 @@ QWEN_TOKEN=ваш_jwt_токен
 3. Следуйте инструкциям, получите токен
 4. Вставьте в `.env`: `TELEGRAM_TOKEN=ваш_токен`
 
-#### Qwen Token
+#### Токен Qwen
 1. Откройте https://chat.qwen.ai
 2. Войдите через Google
 3. Нажмите **F12** → **Application** → **Local Storage** → `https://chat.qwen.ai`
@@ -128,7 +128,7 @@ MINI_APP_BASE_URL=https://shpargalka-app-mjhceaka.fly.dev
 MINI_APP_API_KEY=<ваш_api_ключ>
 ```
 
-## 🐛 FAQ
+## 🐛 Частые вопросы
 
 **Q: matplotlib не установлен**
 A: PNG-fallback и графики не работают, но Mini App / Telegraph остаются.
@@ -149,7 +149,7 @@ A: Включите debug-логи (`logging.DEBUG` в `src/config.py`) и по�
 4. Отправьте в репозиторий (`git push origin feature/AmazingFeature`)
 5. Откройте Pull Request
 
-## 📝 TODO
+## 📝 План доработок
 
 - [ ] Добавить поддержку 更多 языков
 - [ ] Улучшить обработку математических формул
