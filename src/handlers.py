@@ -66,7 +66,7 @@ from .solver import (
     sanitize_model_output,
 )
 
-# ─── Инициализация подсистем ─────────────────────────────────────────────────
+# Инициализация подсистем
 memory = ConversationMemory(
     max_messages=MAX_HISTORY_MESSAGES,
     timeout_minutes=HISTORY_TIMEOUT_MINUTES,
@@ -151,7 +151,7 @@ async def _reply_typing_text(
                 with suppress(Exception):
                     await msg.edit_reply_markup(reply_markup=reply_markup)
 
-# ─── Постоянная клавиатура (вместо /команд) ──────────────────────────────────
+# Постоянная клавиатура (вместо /команд)
 BTN_SETTINGS = "⚙ Настройки"
 BTN_SUBJECT = "📚 Предмет"
 BTN_STATS = "📊 Статистика"
@@ -169,7 +169,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 
-# ─── /start ──────────────────────────────────────────────────────────────────
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     await db_users.get_or_create_user(user_id)
@@ -183,7 +183,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-# ─── Настройки ───────────────────────────────────────────────────────────────
+# Настройки
 def _settings_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
@@ -255,7 +255,7 @@ async def set_format_callback(
             pass
 
 
-# ─── Предмет ─────────────────────────────────────────────────────────────────
+# Предмет
 def _subject_keyboard() -> InlineKeyboardMarkup:
     buttons = []
     row = []
@@ -309,7 +309,7 @@ async def set_subject_callback(
         pass
 
 
-# ─── Callback «Назад к настройкам» ──────────────────────────────────────────
+# Callback «Назад к настройкам»
 async def back_settings_callback(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -341,7 +341,7 @@ async def back_settings_callback(
         pass
 
 
-# ─── Режим ответа ────────────────────────────────────────────────────────────
+# Режим ответа
 async def _show_format_menu(message, user_id: int) -> None:
     format_choice = await db_users.get_format_choice(user_id)
     current = {
@@ -364,7 +364,7 @@ async def _show_format_menu(message, user_id: int) -> None:
     )
 
 
-# ─── Статистика ──────────────────────────────────────────────────────────────
+# Статистика
 async def _show_mystats(message, user_id: int) -> None:
     stats = await db_analytics.get_user_stats(user_id)
     subj = SUBJECT_LABELS.get(stats["favorite_subject"] or "auto", "—")
@@ -378,7 +378,7 @@ async def _show_mystats(message, user_id: int) -> None:
     )
 
 
-# ─── Общая обработка готового ответа ─────────────────────────────────────────
+# Общая обработка готового ответа
 async def process_answer(update, user_id, thinking_msg, answer, cache_hit=False):
     """Сохраняет ответ и рендерит в выбранном формате."""
     answer = sanitize_model_output(answer)
@@ -417,7 +417,7 @@ async def cleanup_qwen_chats():
         pass
 
 
-# ─── Текст ───────────────────────────────────────────────────────────────────
+# Текст
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     question = (update.message.text or "").strip()
@@ -552,7 +552,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             pass
 
 
-# ─── Фото ────────────────────────────────────────────────────────────────────
+# Фото
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
     if await is_banned(user_id):
@@ -580,7 +580,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
 
 
-# ─── Документ ────────────────────────────────────────────────────────────────
+# Документ
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     doc = update.message.document
     if not (doc.mime_type and doc.mime_type.startswith("image/")):
@@ -665,7 +665,7 @@ async def _solve_image(update, user_id, image_bytes, caption, thinking_msg, t0, 
     await cleanup_qwen_chats()
 
 
-# ─── Подробный рендер ────────────────────────────────────────────────────────
+# Подробный рендер
 async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
     answer = sanitize_model_output(answer)
     answer = clean_latex_outside_formulas(answer)
@@ -751,7 +751,7 @@ async def _render_detailed(target_msg, user_id: int, answer: str) -> None:
             pass
 
 
-# ─── Краткий рендер ──────────────────────────────────────────────────────────
+# Краткий рендер
 async def _render_short(target_msg, user_id: int, answer: str) -> None:
     answer = sanitize_model_output(answer)
     short_answer = sanitize_model_output(extract_answers_only(answer))
@@ -802,7 +802,7 @@ async def _render_short(target_msg, user_id: int, answer: str) -> None:
             await target_msg.reply_text(chunk)
 
 
-# ─── Callbacks ───────────────────────────────────────────────────────────────
+# Callbacks
 async def show_detailed_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     user_id = query.from_user.id

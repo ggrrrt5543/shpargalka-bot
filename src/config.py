@@ -11,10 +11,10 @@ from logging.handlers import RotatingFileHandler
 
 from openai import OpenAI
 
-# ─── Telegram ────────────────────────────────────────────────────────────────
+# Telegram
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 
-# ─── Qwen / LLM ──────────────────────────────────────────────────────────────
+# Qwen / LLM
 QWEN_API_URL = os.environ.get(
     "QWEN_API_URL",
     "https://qwen.aikit.club",
@@ -29,23 +29,23 @@ QWEN_API_KEY = os.environ.get("QWEN_API_KEY", QWEN_TOKEN)
 MINI_APP_BASE_URL = os.environ.get("MINI_APP_BASE_URL", "").rstrip("/")
 MINI_APP_API_KEY = os.environ.get("MINI_APP_API_KEY", "")
 
-# ─── Модели (можно переопределить через .env) ────────────────────────────────
+# Модели (можно переопределить через .env)
 TEXT_MODEL = os.environ.get("TEXT_MODEL", "qwen3.6-plus")
 VERIFIER_MODEL = os.environ.get("VERIFIER_MODEL", "qwen3.6-max-preview")
 VISION_MODEL = os.environ.get("VISION_MODEL", "qwen3.6-plus")
 
-# ─── RAG ─────────────────────────────────────────────────────────────────────
+# RAG
 KNOWLEDGE_BASE_PATH = os.environ.get("KNOWLEDGE_BASE_PATH", "./knowledge_base")
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 
-# ─── Память диалога ──────────────────────────────────────────────────────────
+# Память диалога
 MAX_HISTORY_MESSAGES = int(os.environ.get("MAX_HISTORY_MESSAGES", "10"))
 HISTORY_TIMEOUT_MINUTES = int(os.environ.get("HISTORY_TIMEOUT_MINUTES", "30"))
 
-# ─── Кэш ─────────────────────────────────────────────────────────────────────
+# Кэш
 CACHE_TTL_HOURS = int(os.environ.get("CACHE_TTL_HOURS", "24"))
 
-# ─── Админ ───────────────────────────────────────────────────────────────────
+# Админ
 ADMIN_IDS: set[int] = set()
 _admin_ids_raw = os.environ.get("ADMIN_IDS", "")
 if _admin_ids_raw:
@@ -57,10 +57,10 @@ if _admin_ids_raw:
 ADMIN_SECRET_PHRASE = os.environ.get("ADMIN_SECRET_PHRASE", "открой ворота")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
-# ─── Клиент Qwen (OpenAI-совместимый) ────────────────────────────────────────
+# Клиент Qwen (OpenAI-совместимый)
 qwen_client = OpenAI(api_key=QWEN_API_KEY, base_url=QWEN_API_URL)
 
-# ─── Логгер ──────────────────────────────────────────────────────────────────
+# Логгер
 os.makedirs("data/logs", exist_ok=True)
 
 logging.basicConfig(
@@ -81,10 +81,10 @@ _file_handler.setFormatter(
 )
 logger.addHandler(_file_handler)
 
-# ─── Глобальное состояние (legacy) ───────────────────────────────────────────
+# Глобальное состояние (legacy)
 pending_choice_messages: dict[int, int] = {}  # message_id сообщения с выбором формата
 
-# ─── matplotlib (опционально) ────────────────────────────────────────────────
+# matplotlib (опционально)
 try:
     import matplotlib  # noqa: F401
     matplotlib.use("Agg")

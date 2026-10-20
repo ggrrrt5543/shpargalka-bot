@@ -23,7 +23,7 @@ from src.db import users as db_users
 from .ban import get_ban_status, toggle_ban
 from .broadcast import broadcast_message
 
-# ─── Состояния админ-сессии ──────────────────────────────────────────────────
+# Состояния админ-сессии
 STATE_NONE = "none"
 STATE_AWAITING_PASSWORD = "awaiting_password"
 STATE_ACTIVE = "active"
