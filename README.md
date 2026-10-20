@@ -160,7 +160,7 @@ A: Включите debug-логи (`logging.DEBUG` в `src/config.py`) и по�
 
 ## 📞 Контакты
 
-Ваш Telegram: [@ваш_ник]
+Ваш Telegram: [@zoquv2]
 
 ## 📜 Лицензия
 
